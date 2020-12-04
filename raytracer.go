@@ -4,7 +4,14 @@ import "fmt"
 import "log"
 import "os"
 
-type WorkItem string
+type WorkItem int
+
+g_scene := scene1()
+
+const (
+    SAMPLES int = 50
+    DEPTH   int = 50
+)
 
 
 func main() {
@@ -12,8 +19,20 @@ func main() {
 }
 
 
-func Map(filename string, contents string) []KeyValue{
-	// Given ??? raytrace pixel (n times?)
+func Map(rowNum WorkItem) []KeyValue {
+	// Given row num, raytrace pixels
+	kva := []KeyValue{}
+	row := ""
+
+	for x := 0; x < scene.resX; x++ {
+		color := scene.trace(x, y, SAMPLES, DEPTH)
+		row += color.toStringColor()
+	}
+
+	row += "\n"
+	kv := KeyValue{rowNum, row}
+	
+	return kva
 }
 
 
