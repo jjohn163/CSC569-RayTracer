@@ -4,6 +4,23 @@ import "fmt"
 import "log"
 import "os"
 
+type WorkItem string
+
+
+func main() {
+	mapReduce(os.Args[1:], 8, 2, 10, false)
+}
+
+
+func Map(filename string, contents string) []KeyValue{
+	// Given ??? raytrace pixel (n times?)
+}
+
+
+func Reduce(key string, values []string) string{
+	// One reducer outputs output.ppm file
+}
+
 
 func main() {
 	f, err := os.Create("output.ppm")
