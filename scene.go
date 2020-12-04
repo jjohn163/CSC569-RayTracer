@@ -29,19 +29,25 @@ type Scene struct{
 }
 
 func scene1() Scene{
-	spheres := []Sphere{Sphere{vec3{-1,0,2}, 1, vec3{1,0,0}, 1.0}, Sphere{vec3{3,1,0}, 3, vec3{1,0.5,0}, 0.1}, Sphere{vec3{-6,2,-5}, 4, vec3{1,0,0}, 0.0}}
-	planes := []Plane{Plane{vec3{0,1,0}, -2, vec3{0,1,0}, 1.0}}
+	spheres := []Sphere{Sphere{vec3{-1,0,2}, 1, vec3{1,0,0}, 1.0}, Sphere{vec3{3,1,0}, 3, vec3{1,0.5,0}, 0.1}, Sphere{vec3{-6,2,-5}, 4, vec3{1.0,1.0,1.0}, 0.0}}
+	planes := []Plane{Plane{vec3{0,1,0}, -2, vec3{0.0,0.5,0.2}, 1.0}}
 	camera := createCamera(vec3{0,0,10}, vec3{0,0,0}, vec3{0,1,0}, vec3{1.33333,0,0})
 	return Scene{spheres, planes, camera, 640, 480}
 }
 
-
+func rayColor(ray *Ray) vec3 { //gives gradient to the background
+	r := ray.direction.normalize()
+	t := 0.5*(r.y + 1.0);
+	a := vec3{1.0, 1.0, 1.0}
+	b := vec3{0.4, 0.4, 1.0}
+    return a.multiply(1.0-t).add(b.multiply(t))
+}
 
 func (scene Scene) shadeRay(ray *Ray, depth int) vec3 {
 	if depth == 0 {
 		return vec3{0,0,0}
 	}
-	hit := Hit{Ray{vec3{0,0,0}, vec3{0,0,0}}, 1000000.0, vec3{0.6,0.6,1}, 1.0} //default hit results
+	hit := Hit{Ray{vec3{0,0,0}, vec3{0,0,0}}, 1000000.0, rayColor(ray), 1.0} //default hit results
 	collision := false
 	for _, sphere := range scene.spheres {
 		collision = collision || sphere.checkHit(ray, &hit)
@@ -53,13 +59,11 @@ func (scene Scene) shadeRay(ray *Ray, depth int) vec3 {
 		reflect(ray, &hit)
 		return scene.shadeRay(ray, depth - 1).multiplyVec3(hit.color)
 	} else {
-		return vec3{0.6,0.6,1}
+		return hit.color
 	}
 }
 
-func (scene Scene) trace(x int, y int) vec3 {
-	samples := 25
-	depth := 50
+func (scene Scene) trace(x int, y int, samples int, depth int) vec3 {
 	color := vec3{0,0,0}
 	for sample := 0; sample < samples; sample++ {
 		vp := (float64(y) + (rand.Float64() * 2.0 - 1.0)) / float64(scene.resY);

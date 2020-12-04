@@ -22,7 +22,7 @@ func main() {
 	//trace the scene
 	for y := scene.resY - 1; y >= 0; y--{
 		for x := 0; x < scene.resX; x++ {
-			color := scene.trace(x, y)
+			color := scene.trace(x, y, 50, 50)
 			f.WriteString(color.toStringColor())
 		}
 		f.WriteString("\n") //newline for next row
