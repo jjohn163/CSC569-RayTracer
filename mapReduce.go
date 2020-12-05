@@ -3,7 +3,6 @@ package main
 import (
     "fmt"
     "time"
-    "sync"
 )
 
 
@@ -83,13 +82,10 @@ func worker(
         fmt.Printf("Forcing worker %d to crash\n", id)
         return
     }
-    
-    phase := INITIAL
 
     for continueMapping && id != numWorkers - 1 {
         select {
             case assignment, data := <- mapChan:
-                phase = MAPPING
                 if data {
                     doHeartbeat(id, &myTable)
                     ackChannel <- AckMessage{workerId: id, jobIndex: assignment.jobIndex, isTakingWork: true}
@@ -106,7 +102,6 @@ func worker(
                 
                 } else {
                     continueMapping = false
-                    phase = REDUCE_INIT
                 }
 
             default:
@@ -121,7 +116,6 @@ func worker(
     for continueReducing && id == numWorkers - 1 {
         select {
             case assignment, data := <- reduceChan:
-                phase = REDUCING
                 if data {
                     doHeartbeat(id, &myTable)
                     ackChannel <- AckMessage{workerId: id, jobIndex: assignment.jobIndex, isTakingWork: true}
