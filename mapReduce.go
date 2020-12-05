@@ -94,7 +94,7 @@ func worker(
                     //map and write to IF
                     doHeartbeat(id, &myTable)
                     
-                    kv := Map(assignment.work, scene)
+                    kv := Map(assignment.work, &scene)
                     pixelRows[assignment.work] = kv.Value
             
                     //done with task
@@ -124,7 +124,7 @@ func worker(
                     //reducing and writing to file
                     doHeartbeat(id, &myTable)
 
-                    Reduce()
+                    Reduce(&scene)
 
                     //done with task
                     doHeartbeat(id, &myTable)
@@ -149,7 +149,7 @@ func master(
     phase int,
     scene Scene) {
     
-    workTable = make([]WorkAssignment, g_scene.resY)
+    workTable = make([]WorkAssignment, scene.resY)
     
     fmt.Printf("Master\n")
 
@@ -158,7 +158,7 @@ func master(
     // fill work table
 
     if phase == INITIAL {
-        for i := 0; i < g_scene.resY; i++ {
+        for i := 0; i < scene.resY; i++ {
             doHeartbeat(0, &myTable)
             var workItem WorkItem = WorkItem(i)
 
