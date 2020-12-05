@@ -3,10 +3,13 @@ package main
 import "fmt"
 import "log"
 import "os"
+import "time"
 
 type WorkItem int
 
-g_scene := scene1()
+var g_scene Scene = scene1()
+
+var pixelRows []string = make([]string, g_scene.resY)
 
 const (
     SAMPLES int = 50
@@ -15,32 +18,51 @@ const (
 
 
 func main() {
-	mapReduce(os.Args[1:], 8, 2, 10, false)
+	mapReduce(8, 2, 50, false)
 }
 
 
-func Map(rowNum WorkItem) []KeyValue {
+func Map(rowNum WorkItem) KeyValue {
 	// Given row num, raytrace pixels
-	kva := []KeyValue{}
 	row := ""
 
-	for x := 0; x < scene.resX; x++ {
-		color := scene.trace(x, y, SAMPLES, DEPTH)
+	for x := 0; x < g_scene.resX; x++ {
+		color := g_scene.trace(x, int(rowNum), SAMPLES, DEPTH)
 		row += color.toStringColor()
 	}
 
 	row += "\n"
-	kv := KeyValue{rowNum, row}
+	kv := KeyValue{int(rowNum), row}
 	
-	return kva
+	return kv
 }
 
 
-func Reduce(key string, values []string) string{
+func Reduce() {
 	// One reducer outputs output.ppm file
+	f, err := os.Create("output.ppm")
+	if err != nil {
+		log.Fatal(err)
+	}
+	
+	//write header for output file
+	f.WriteString("P3\n")
+	f.WriteString(fmt.Sprintf("%d %d\n", g_scene.resX, g_scene.resY))
+	f.WriteString("255\n")
+	
+	//trace the scene
+	for y := g_scene.resY - 1; y >= 0; y--{
+		if(pixelRows[y] == "") {
+				f.WriteString(pixelRows[y])
+		} else {
+				time.Sleep(1e6)
+		}
+	}
+	
+	f.Close()
 }
 
-
+/*
 func main() {
 	f, err := os.Create("output.ppm")
     if err != nil {
@@ -65,4 +87,4 @@ func main() {
 	}
 
     fmt.Println("done")
-}
+}*/

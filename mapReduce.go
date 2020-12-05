@@ -3,19 +3,12 @@ package main
 import (
     "fmt"
     "time"
-    "encoding/json"
-    "os"
-    "log"
-    "strings"
-    "io/ioutil"
-    "sort"
     "sync"
 )
 
 
 type WorkAssignment struct {
     work         WorkItem
-    intermediate string
     workerId     int
     jobIndex     int
 }
@@ -28,7 +21,7 @@ type AckMessage struct {
 }
 
 type KeyValue struct {
-    Key   string
+    Key   int
     Value string
 }
 
@@ -55,7 +48,7 @@ var numNeighbors int
 var mu sync.Mutex
 
 
-func mapReduce(fileNames []string, workers int, neighbors int, timeout int, crash bool) {
+func mapReduce(workers int, neighbors int, timeout int, crash bool) {
     // Master ID is 0
     numWorkers = workers
     numNeighbors = neighbors
@@ -69,12 +62,12 @@ func mapReduce(fileNames []string, workers int, neighbors int, timeout int, cras
     ackChannel := make(chan AckMessage, maxChanBuff)
 
     for i := 1; i <= numWorkers; i++ {
-        go worker(i, initialTable, mapChannel, reduceChannel, ackChannel, crash, fileNames)
+        go worker(i, initialTable, mapChannel, reduceChannel, ackChannel, crash)
     }
 
-    //master(initialTable, mapChannel, reduceChannel, ackChannel, fileNames, INITIAL)
+    go master(initialTable, mapChannel, reduceChannel, ackChannel, INITIAL)
 
-    time.Sleep(60e9)
+    time.Sleep(120e9)
 }
 
 
@@ -84,8 +77,7 @@ func worker(
     mapChan chan WorkAssignment, 
     reduceChan chan WorkAssignment, 
     ackChannel chan AckMessage,
-    crash bool,
-    filenames []string) {
+    crash bool) {
    
     fmt.Printf("Worker: %d\n", id)
     continueMapping := true
@@ -97,7 +89,7 @@ func worker(
     
     phase := INITIAL
 
-    for continueMapping {
+    for continueMapping && id != numWorkers - 1 {
         select {
             case assignment, data := <- mapChan:
                 phase = MAPPING
@@ -105,43 +97,11 @@ func worker(
                     doHeartbeat(id, &myTable)
                     ackChannel <- AckMessage{workerId: id, jobIndex: assignment.jobIndex, isTakingWork: true}
             
-                    //open file contents for mapping
-                    doHeartbeat(id, &myTable)
-                    
-                    file, err := os.Open(string(assignment.work))
-                    
-                    if err != nil {
-                        log.Fatalf("cannot open %v", assignment.work)
-                    }
-                    
-                    content, err := ioutil.ReadAll(file)
-                    
-                    if err != nil {
-                        log.Fatalf("cannot read %v", assignment.work)
-                    }
-            
                     //map and write to IF
                     doHeartbeat(id, &myTable)
                     
-                    kva := Map(assignment.intermediate, string(content))
-
-                    doHeartbeat(id, &myTable)
-
-                    ifile, err := os.Create(assignment.intermediate)
-                    
-                    if err != nil {
-                        log.Fatalf("cannot open %v", assignment.intermediate)
-                    }
-                    
-                    enc := json.NewEncoder(ifile)
-                    
-                    for _, kv := range kva {
-                        if err := enc.Encode(&kv); err != nil {
-                            break
-                        }
-                    }
-                    
-                    ifile.Close()
+                    kv := Map(assignment.work)
+                    pixelRows[assignment.work] = kv.Value
             
                     //done with task
                     doHeartbeat(id, &myTable)
@@ -158,7 +118,7 @@ func worker(
                 mu.Lock()
                 if checkTable(id, &myTable) == 0 {
                     fmt.Printf("Master stopped working, relaunching..., %s\n", time.Now().String())
-                    go master(myTable, mapChan, reduceChan, ackChannel, filenames, phase)
+                    go master(myTable, mapChan, reduceChan, ackChannel, phase)
 				}
                 mu.Unlock()
 
@@ -169,77 +129,28 @@ func worker(
     mu.Lock()
     if checkTable(id, &myTable) == 0 {
         fmt.Printf("Master stopped working, relaunching..., %s\n", time.Now().String())
-        go master(myTable, mapChan, reduceChan, ackChannel, filenames, phase)  
+        go master(myTable, mapChan, reduceChan, ackChannel, phase)  
 	}
     mu.Unlock()
 
     continueReducing := true
     
-    for continueReducing {
+    for continueReducing && id == numWorkers - 1 {
         select {
             case assignment, data := <- reduceChan:
                 phase = REDUCING
                 if data {
                     doHeartbeat(id, &myTable)
                     ackChannel <- AckMessage{workerId: id, jobIndex: assignment.jobIndex, isTakingWork: true}
-                    kva := []KeyValue{}
-
-                    //reading IF for reduce
-                    doHeartbeat(id, &myTable)
-                    
-                    ifile, err := os.Open(assignment.intermediate)
-                    
-                    if err != nil {
-                        log.Fatalf("cannot open %v", assignment.intermediate)
-                    }
-                    
-                    dec := json.NewDecoder(ifile)
-                    
-                    for {
-                        var kv KeyValue
-                        if err := dec.Decode(&kv); err != nil {
-                            break
-                        } 
-                        kva = append(kva, kv)
-                    }
-                    
-                    ifile.Close()
-                    sort.Sort(ByKey(kva))
 
                     //reducing and writing to file
                     doHeartbeat(id, &myTable)
-                    
-                    fileArray := strings.Split(assignment.intermediate, "-")
-                    oname := "mr-out-" + fileArray[len(fileArray)-1]
-                    ofile, _ := os.Create(oname)
-                    
-                    i := 0
 
-                    for i < len(kva) {
-                        j := i + 1
-                        for j < len(kva) && kva[j].Key == kva[i].Key {
-                            j++
-                        }
-                        values := []string{}
-                        for k := i; k < j; k++ {
-                            values = append(values, kva[k].Value)
-                        }
-                        output := Reduce(kva[i].Key, values)
-                        // this is the correct format for each line of Reduce output.
-                        fmt.Fprintf(ofile, "%v %v\n", kva[i].Key, output)
-
-                        i = j
-                    }
+                    Reduce()
 
                     //done with task
                     doHeartbeat(id, &myTable)
                     ackChannel <- AckMessage{workerId: id, jobIndex: assignment.jobIndex, isTakingWork: false}
-
-                    //cleanup IF
-                    e := os.Remove(assignment.intermediate) 
-                    if e != nil { 
-                        log.Fatal(e) 
-                    } 
                 } else {
                     continueReducing = false
                 }
@@ -249,7 +160,7 @@ func worker(
                 mu.Lock()
                 if checkTable(id, &myTable) == 0 {
                     fmt.Printf("Master stopped working, relaunching..., %s\n", time.Now().String())
-                    go master(myTable, mapChan, reduceChan, ackChannel, filenames, phase)
+                    go master(myTable, mapChan, reduceChan, ackChannel, phase)
 				}
                 mu.Unlock()
 
@@ -264,11 +175,9 @@ func master(
     mapChan chan WorkAssignment, 
     reduceChan chan WorkAssignment, 
     ackChannel chan AckMessage,
-    fileNames []string,
     phase int) {
     
-    workTable = make([]WorkAssignment, len(fileNames))
-    var intermediateFiles []string
+    workTable = make([]WorkAssignment, g_scene.resY)
     
     fmt.Printf("Master\n")
 
@@ -277,14 +186,11 @@ func master(
     // fill work table
 
     if phase == INITIAL {
-        for _, filename := range fileNames {
+        for i := 0; i < g_scene.resY; i++ {
             doHeartbeat(0, &myTable)
-            var workItem WorkItem = WorkItem(filename)
-            fileArray := strings.Split(filename, "/")
-            intermediateFile := "if-" + fileArray[len(fileArray) -1]
-            intermediateFiles = append(intermediateFiles, intermediateFile)
+            var workItem WorkItem = WorkItem(i)
 
-            workAssignment := WorkAssignment{workItem, intermediateFile, -1, jobId}
+            workAssignment := WorkAssignment{workItem, -1, jobId}
 
             mapChan <- workAssignment
             workTable[jobId] = workAssignment
@@ -330,7 +236,7 @@ func master(
             for i := 0; i < len(workTable); i++ {
                 if workTable[i].workerId == failedWorkAssignment {
                     fmt.Printf("Goroutine stopped working, relaunching..., %s\n", failedWorkAssignment, time.Now().String())
-                    go worker(failedWorkAssignment, myTable, mapChan, reduceChan, ackChannel, false, fileNames)
+                    go worker(failedWorkAssignment, myTable, mapChan, reduceChan, ackChannel, false)
 
                     workTable[i].workerId = -1
                     workAssignment := workTable[i]
@@ -362,15 +268,14 @@ func master(
     // Reducing
     if phase == REDUCE_INIT {
         jobId = 0
-        for _, filename := range intermediateFiles {
-            doHeartbeat(0, &myTable)
-            var workItem WorkItem = WorkItem(filename)
-            workAssignment := WorkAssignment{workItem, filename, -1, jobId}
 
-            reduceChan <- workAssignment
-            workTable[jobId] = workAssignment
-            jobId++
-        }
+        doHeartbeat(0, &myTable)
+        var workItem WorkItem = WorkItem(1)
+        workAssignment := WorkAssignment{workItem, -1, jobId}
+
+        reduceChan <- workAssignment
+        workTable[jobId] = workAssignment
+        jobId++
 
         phase = REDUCING
     }
@@ -411,7 +316,7 @@ func master(
             for i := 0; i < len(workTable); i++ {
                 if workTable[i].workerId == failedWorkAssignment {
                     fmt.Printf("Goroutine %d stopped working, relaunching..., %s\n", failedWorkAssignment, time.Now().String())
-                    go worker(failedWorkAssignment, myTable, mapChan, reduceChan, ackChannel, false, fileNames)
+                    go worker(failedWorkAssignment, myTable, mapChan, reduceChan, ackChannel, false)
 
                     workTable[i].workerId = -1
                     workAssignment := workTable[i]
@@ -434,4 +339,5 @@ func master(
     }
 
     close(reduceChan)
+    fmt.Printf("Master is done\n")
 }
