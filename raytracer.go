@@ -52,9 +52,10 @@ func Reduce() {
 	
 	//trace the scene
 	for y := g_scene.resY - 1; y >= 0; y--{
-		if(pixelRows[y] == "") {
+		if(pixelRows[y] != "") {
 				f.WriteString(pixelRows[y])
 		} else {
+				y++
 				time.Sleep(1e6)
 		}
 	}
