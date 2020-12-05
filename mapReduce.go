@@ -185,6 +185,8 @@ func master(
     jobId := 0
     // fill work table
 
+    fmt.Printf("Now in Initial Phase\n")
+
     if phase == INITIAL {
         for i := 0; i < g_scene.resY; i++ {
             doHeartbeat(0, &myTable)
@@ -199,6 +201,8 @@ func master(
 
         phase = MAPPING
     }
+
+    fmt.Printf("Now in Mapping Phase\n")
 
     workTableHasWork := phase == MAPPING
     for workTableHasWork {
@@ -230,6 +234,8 @@ func master(
             }
         }
 
+        fmt.Printf("Halfway through Mapping Phase\n")
+
         // Check for failed workers
         failedWorkAssignment := checkTable(0, &myTable)
         if failedWorkAssignment != -1 {
@@ -258,11 +264,11 @@ func master(
         time.Sleep(1e9)
     }
 
+    fmt.Printf("At end of Mapping Phase\n")
+
     if phase == MAPPING {
         close(mapChan)
         phase = REDUCE_INIT
-        // Force master to crash at this stage
-        return
     }
 
     // Reducing
@@ -279,6 +285,8 @@ func master(
 
         phase = REDUCING
     }
+
+    fmt.Printf("Now in Reducing Phase\n")
 
     workTableHasWork = true
     for workTableHasWork {
@@ -309,6 +317,8 @@ func master(
                     ackChanIsEmpty = true
             }
         }
+
+        fmt.Printf("Halfway through Reducing Phase Phase\n")
 
         // Check for failed workers
         failedWorkAssignment := checkTable(0, &myTable)
