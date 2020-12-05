@@ -45,7 +45,6 @@ func (a ByKey) Less(i, j int) bool { return a[i].Key < a[j].Key }
 var workTable []WorkAssignment
 var numWorkers int
 var numNeighbors int
-var mu sync.Mutex
 
 
 func mapReduce(workers int, neighbors int, timeout int, crash bool) {
@@ -113,23 +112,9 @@ func worker(
             default:
                 doHeartbeat(id, &myTable)
 
-                mu.Lock()
-                if checkTable(id, &myTable) == 0 {
-                    fmt.Printf("Master stopped working, relaunching..., %s\n", time.Now().String())
-                    go master(myTable, mapChan, reduceChan, ackChannel, phase)
-				}
-                mu.Unlock()
-
                 time.Sleep(1e8)
         }
     }
-
-    mu.Lock()
-    if checkTable(id, &myTable) == 0 {
-        fmt.Printf("Master stopped working, relaunching..., %s\n", time.Now().String())
-        go master(myTable, mapChan, reduceChan, ackChannel, phase)  
-	}
-    mu.Unlock()
 
     continueReducing := true
     
@@ -154,13 +139,6 @@ func worker(
                 }
             default:
                 doHeartbeat(id, &myTable)
-
-                mu.Lock()
-                if checkTable(id, &myTable) == 0 {
-                    fmt.Printf("Master stopped working, relaunching..., %s\n", time.Now().String())
-                    go master(myTable, mapChan, reduceChan, ackChannel, phase)
-				}
-                mu.Unlock()
 
                 time.Sleep(5e8)
         }
