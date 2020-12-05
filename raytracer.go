@@ -18,11 +18,12 @@ const (
 
 
 func main() {
-	mapReduce(8, 2, 50, false)
+	scene := scene1()
+	mapReduce(8, 2, 50, false, scene)
 }
 
 
-func Map(rowNum WorkItem) KeyValue {
+func Map(rowNum WorkItem, scene Scene) KeyValue {
 	// Given row num, raytrace pixels
 	row := ""
 
