@@ -1,10 +1,7 @@
 package main
 
-import (
-    "fmt"
-    "time"
-)
-
+import "fmt"
+import "time"
 
 type WorkAssignment struct {
     work         WorkItem
