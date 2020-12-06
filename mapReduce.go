@@ -43,7 +43,7 @@ var numWorkers int
 var numNeighbors int
 
 
-func mapReduce(workers int, neighbors int, timeout int, crash bool, scene Scene) {
+func mapReduce(workers int, neighbors int, timeout int, scene Scene) {
     // Master ID is 0
     numWorkers = workers
     numNeighbors = neighbors
@@ -57,7 +57,7 @@ func mapReduce(workers int, neighbors int, timeout int, crash bool, scene Scene)
     ackChannel := make(chan AckMessage, maxChanBuff)
 
     for i := 1; i <= numWorkers; i++ {
-        go worker(i, initialTable, mapChannel, reduceChannel, ackChannel, crash, scene)
+        go worker(i, initialTable, mapChannel, reduceChannel, ackChannel, scene)
     }
 
     master(initialTable, mapChannel, reduceChannel, ackChannel, INITIAL, scene)
@@ -70,18 +70,12 @@ func worker(
     mapChan chan WorkAssignment, 
     reduceChan chan WorkAssignment, 
     ackChannel chan AckMessage,
-    crash bool,
     scene Scene) {
    
     fmt.Printf("Worker: %d\n", id)
     continueMapping := true
-    
-    if (crash && id == 1) {
-        fmt.Printf("Forcing worker %d to crash\n", id)
-        return
-    }
 
-    for continueMapping && id != numWorkers - 1 {
+    for continueMapping {
         select {
             case assignment, data := <- mapChan:
                 if data {
@@ -111,7 +105,7 @@ func worker(
 
     continueReducing := true
     
-    for continueReducing && id == numWorkers - 1 {
+    for continueReducing {
         select {
             case assignment, data := <- reduceChan:
                 if data {
@@ -205,7 +199,7 @@ func master(
             for i := 0; i < len(workTable); i++ {
                 if workTable[i].workerId == failedWorkAssignment {
                     fmt.Printf("Goroutine stopped working, relaunching..., %s\n", failedWorkAssignment, time.Now().String())
-                    go worker(failedWorkAssignment, myTable, mapChan, reduceChan, ackChannel, false, scene)
+                    go worker(failedWorkAssignment, myTable, mapChan, reduceChan, ackChannel, scene)
 
                     workTable[i].workerId = -1
                     workAssignment := workTable[i]
@@ -283,7 +277,7 @@ func master(
             for i := 0; i < len(workTable); i++ {
                 if workTable[i].workerId == failedWorkAssignment {
                     fmt.Printf("Goroutine %d stopped working, relaunching..., %s\n", failedWorkAssignment, time.Now().String())
-                    go worker(failedWorkAssignment, myTable, mapChan, reduceChan, ackChannel, false, scene)
+                    go worker(failedWorkAssignment, myTable, mapChan, reduceChan, ackChannel, scene)
 
                     workTable[i].workerId = -1
                     workAssignment := workTable[i]
