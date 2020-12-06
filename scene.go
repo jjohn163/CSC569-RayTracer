@@ -43,7 +43,7 @@ func rayColor(ray *Ray) vec3 { //gives gradient to the background
     return a.multiply(1.0-t).add(b.multiply(t))
 }
 
-func (scene Scene) shadeRay(ray *Ray, depth int) vec3 {
+func (scene Scene) shadeRay(ray *Ray, depth int, r *rand.Rand) vec3 {
 	if depth == 0 {
 		return vec3{0,0,0}
 	}
@@ -56,21 +56,21 @@ func (scene Scene) shadeRay(ray *Ray, depth int) vec3 {
 		collision = collision || plane.checkHit(ray, &hit)
 	}
 	if collision {
-		reflect(ray, &hit)
-		return scene.shadeRay(ray, depth - 1).multiplyVec3(hit.color)
+		reflect(ray, &hit, r)
+		return scene.shadeRay(ray, depth - 1, r).multiplyVec3(hit.color)
 	} else {
 		return hit.color
 	}
 }
 
-func (scene Scene) trace(x int, y int, samples int, depth int) vec3 {
+func (scene Scene) trace(x int, y int, samples int, depth int, r *rand.Rand) vec3 {
 	color := vec3{0,0,0}
 	for sample := 0; sample < samples; sample++ {
-		vp := (float64(y) + (rand.Float64() * 2.0 - 1.0)) / float64(scene.resY);
-		hp := (float64(x) + (rand.Float64() * 2.0 - 1.0)) / float64(scene.resX);
+		vp := (float64(y) + (r.Float64() * 2.0 - 1.0)) / float64(scene.resY);
+		hp := (float64(x) + (r.Float64() * 2.0 - 1.0)) / float64(scene.resX);
 		rayDirection := scene.camera.llc.add(scene.camera.horizontal.multiply(hp)).add(scene.camera.vertical.multiply(vp)).add(scene.camera.position.multiply(-1.0))
 		ray := Ray{scene.camera.position, rayDirection}
-		color = color.add(scene.shadeRay(&ray, depth))
+		color = color.add(scene.shadeRay(&ray, depth, r))
 	}
 	color = color.divide(float64(samples))
 	color.x = math.Min(math.Sqrt(color.x), 1.0)

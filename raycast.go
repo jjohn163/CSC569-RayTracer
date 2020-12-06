@@ -15,9 +15,9 @@ type Hit struct{
 	reflectance float64
 }
 
-func randomDirection() vec3 {
+func randomDirection(r *rand.Rand) vec3 {
 	for true {
-		direction := vec3{rand.Float64() * 2.0 - 1.0, rand.Float64() * 2.0 - 1.0, rand.Float64() * 2.0 - 1.0}
+		direction := vec3{r.Float64() * 2.0 - 1.0, r.Float64() * 2.0 - 1.0, r.Float64() * 2.0 - 1.0}
 		if direction.length() <= 1 {
 			return direction
 		}
@@ -26,10 +26,10 @@ func randomDirection() vec3 {
 	return vec3{0,0,0}
 }
 
-func reflect(ray *Ray, hit *Hit) {
+func reflect(ray *Ray, hit *Hit, r *rand.Rand) {
 	dir := ray.direction.add(hit.ray.direction.multiply(-2.0 * hit.ray.direction.dot(ray.direction)))
 	dir = dir.normalize()
-	dir = hit.ray.position.add(dir).add(randomDirection().multiply(hit.reflectance))
+	dir = hit.ray.position.add(dir).add(randomDirection(r).multiply(hit.reflectance))
 	dir = dir.add(hit.ray.position.multiply(-1.0))
 	ray.direction = dir.normalize()
 	ray.position = hit.ray.position

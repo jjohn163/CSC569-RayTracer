@@ -3,6 +3,7 @@ package main
 import "flag"
 import "fmt"
 import "log"
+import "math/rand"
 import "os"
 import "time"
 import "runtime"
@@ -56,9 +57,10 @@ func main() {
 func Map(rowNum WorkItem, scene *Scene) KeyValue {
 	// Given row num, raytrace pixels
 	row := ""
+	r := rand.New(rand.NewSource(99))
 
 	for x := 0; x < scene.resX; x++ {
-		color := scene.trace(x, int(rowNum), SAMPLES, DEPTH)
+		color := scene.trace(x, int(rowNum), SAMPLES, DEPTH, r)
 		row += color.toStringColor()
 	}
 
